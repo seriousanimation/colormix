@@ -126,7 +126,6 @@
             opacity: 1;
         }
 
-        /* NEW 2D Color Picker Styles */
         .picker-container {
             display: flex;
             flex-direction: column;
@@ -578,7 +577,6 @@
         let currentMixingType = 'average';
         let activeColorBlock = null;
 
-        // NEW: State for each 2D picker (H, S, V)
         let colorStates = {
             color1: { h: 0, s: 100, v: 100 },
             color2: { h: 120, s: 100, v: 100 },
@@ -599,16 +597,22 @@
             return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
         }
 
-        function rgbToCmyk(r, g, b) {
-            r /= 255; g /= 255; b /= 255;
-            const k = 1 - Math.max(r, g, b);
-            const c = (1 - r - k) / (1 - k) || 0;
-            const m = (1 - g - k) / (1 - k) || 0;
-            const y = (1 - b - k) / (1 - k) || 0;
-            return { c: Math.round(c * 100), m: Math.round(m * 100), y: Math.round(y * 100), k: Math.round(k * 100) };
+        // UPDATED: Corrected CMY factorization function
+        function rgbToCmy(r, g, b) {
+            // This is a direct inversion for a pure CMY model (no K).
+            // C = 1 - R, M = 1 - G, Y = 1 - B
+            const c = 1 - (r / 255);
+            const m = 1 - (g / 255);
+            const y = 1 - (b / 255);
+            
+            // Return CMY values as percentages
+            return { 
+                c: Math.round(c * 100), 
+                m: Math.round(m * 100), 
+                y: Math.round(y * 100) 
+            };
         }
         
-        // NEW: HSV/HSB and RGB conversion functions for the 2D picker
         function rgbToHsv(r, g, b) {
             r /= 255; g /= 255; b /= 255;
             let max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -656,29 +660,28 @@
             return `<div class="color-circle" style="background-color: ${rColor};"></div><div class="color-circle" style="background-color: ${gColor};"></div><div class="color-circle" style="background-color: ${bColor};"></div>`;
         }
 
-        function createCMYCircles(cmyk) {
-            const cColor = cmyk.c > 0 ? `hsl(180, 100%, ${100 - cmyk.c/2}%)` : '#ffffff';
-            const mColor = cmyk.m > 0 ? `hsl(300, 100%, ${100 - cmyk.m/2}%)` : '#ffffff';
-            const yColor = cmyk.y > 0 ? `hsl(60, 100%, ${100 - cmyk.y/2}%)` : '#ffffff';
+        function createCMYCircles(cmy) {
+            const cColor = cmy.c > 0 ? `hsl(180, 100%, ${100 - cmy.c/2}%)` : '#ffffff';
+            const mColor = cmy.m > 0 ? `hsl(300, 100%, ${100 - cmy.m/2}%)` : '#ffffff';
+            const yColor = cmy.y > 0 ? `hsl(60, 100%, ${100 - cmy.y/2}%)` : '#ffffff';
             return `<div class="color-circle" style="background-color: ${cColor};"></div><div class="color-circle" style="background-color: ${mColor};"></div><div class="color-circle" style="background-color: ${yColor};"></div>`;
         }
         
         function updateColorInfo(colorBlock) {
             const color = hexToRgb(colorBlock.dataset.color);
-            const cmyk = rgbToCmyk(color.r, color.g, color.b);
+            const cmy = rgbToCmy(color.r, color.g, color.b); // UPDATED: Use new function
             const infoId = colorBlock.id.replace('color', 'info');
             const rgbCircles = createRGBCircles(color);
-            const cmyCircles = createCMYCircles(cmyk);
+            const cmyCircles = createCMYCircles(cmy); // UPDATED: Use new variable
             document.getElementById(infoId).innerHTML = `
                 <div>R:${color.r} G:${color.g} B:${color.b}<br>
-                C:${cmyk.c} M:${cmyk.m} Y:${cmyk.y}</div>
+                C:${cmy.c} M:${cmy.m} Y:${cmy.y}</div>
                 <div class="color-circles">
                     <div class="circle-group rgb-circles"><span class="circle-label">RGB:</span>${rgbCircles}</div>
                     <div class="circle-group cmy-circles"><span class="circle-label">CMY:</span>${cmyCircles}</div>
                 </div>`;
         }
 
-        // NEW: Update a picker's UI from its state
         function updatePickerUI(targetId, hsv) {
             const pickerArea = document.querySelector(`.color-picker-area[data-target="${targetId}"]`);
             const handle = document.querySelector(`.picker-handle[id$="-${targetId.slice(-1)}"]`);
@@ -690,7 +693,6 @@
             handle.style.top = `${100 - hsv.v}%`;
         }
         
-        // NEW: Master function to update a color based on new HSV values
         function updateColorFromPicker(targetId, hsv) {
             colorStates[targetId] = { ...hsv };
             
@@ -744,12 +746,12 @@
         }
 
         function updateResultValues(rgb) {
-            const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+            const cmy = rgbToCmy(rgb.r, rgb.g, rgb.b); // UPDATED: Use new function
             const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
             document.getElementById('result-values').innerHTML = `
                 <div class="color-value">R: ${rgb.r}</div><div class="color-value">G: ${rgb.g}</div>
-                <div class="color-value">B: ${rgb.b}</div><div class="color-value">C: ${cmyk.c}</div>
-                <div class="color-value">M: ${cmyk.m}</div><div class="color-value">Y: ${cmyk.y}</div>
+                <div class="color-value">B: ${rgb.b}</div><div class="color-value">C: ${cmy.c}</div>
+                <div class="color-value">M: ${cmy.m}</div><div class="color-value">Y: ${cmy.y}</div>
                 <div class="color-value" style="grid-column: 1/-1;">HEX: ${hex}</div>`;
         }
 
@@ -770,7 +772,6 @@
 
         // --- Event Listeners Setup ---
         
-        // NEW: Setup for 2D pickers
         function setupPickers() {
             document.querySelectorAll('.color-picker-area').forEach(pickerArea => {
                 const handleDrag = (e) => {
@@ -882,3 +883,4 @@
     </script>
 </body>
 </html>
+

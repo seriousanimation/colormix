@@ -72,7 +72,7 @@
             display: flex;
             justify-content: space-around;
             align-items: center;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
             flex-wrap: wrap;
             gap: 20px;
         }
@@ -213,10 +213,40 @@
         .cmyk-circles .color-circle:nth-child(4) { z-index: 2; }
         .cmyk-circles .color-circle:nth-child(5) { z-index: 1; }
 
+        .mixing-type-selector {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .mixing-type-btn {
+            padding: 10px 20px;
+            border: 2px solid #333;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            color: #333;
+        }
+
+        .mixing-type-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .mixing-type-btn.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+            transform: scale(1.05);
+        }
+
         .results-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+            display: flex;
+            justify-content: center;
             margin-top: 40px;
         }
 
@@ -226,6 +256,8 @@
             padding: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease;
+            width: 400px;
+            max-width: 100%;
         }
 
         .result-card:hover {
@@ -439,6 +471,10 @@
             .operator {
                 font-size: 2em;
             }
+
+            .mixing-type-selector {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
@@ -496,26 +532,18 @@
             <div class="operator">=</div>
         </div>
 
+        <div class="mixing-type-selector">
+            <button class="mixing-type-btn" data-type="additive">Additive</button>
+            <button class="mixing-type-btn active" data-type="average">Average</button>
+            <button class="mixing-type-btn" data-type="subtractive">Subtractive</button>
+        </div>
+
         <div class="results-section">
             <div class="result-card">
-                <div class="result-title">Additive</div>
-                <div class="result-color" id="additive-result"></div>
-                <div class="mixing-visualization" id="additive-visualization"></div>
-                <div class="color-values" id="additive-values"></div>
-            </div>
-            
-            <div class="result-card">
-                <div class="result-title">Subtractive</div>
-                <div class="result-color" id="subtractive-result"></div>
-                <div class="mixing-visualization" id="subtractive-visualization"></div>
-                <div class="color-values" id="subtractive-values"></div>
-            </div>
-            
-            <div class="result-card">
-                <div class="result-title">Average</div>
-                <div class="result-color" id="average-result"></div>
-                <div class="mixing-visualization" id="average-visualization"></div>
-                <div class="color-values" id="average-values"></div>
+                <div class="result-title" id="result-title">Average</div>
+                <div class="result-color" id="result-color"></div>
+                <div class="mixing-visualization" id="result-visualization"></div>
+                <div class="color-values" id="result-values"></div>
             </div>
         </div>
     </div>
@@ -534,6 +562,7 @@
 
     <script>
         let currentMode = 2;
+        let currentMixingType = 'average';
         let activeColorBlock = null;
 
         // Color conversion functions
@@ -711,33 +740,25 @@
                 sourceColors.push(hexToRgb(document.getElementById('color3').dataset.color));
             }
             
-            // Update result colors
-            document.getElementById('additive-result').style.backgroundColor = 
-                rgbToHex(results.additive.r, results.additive.g, results.additive.b);
-            document.getElementById('subtractive-result').style.backgroundColor = 
-                rgbToHex(results.subtractive.r, results.subtractive.g, results.subtractive.b);
-            document.getElementById('average-result').style.backgroundColor = 
-                rgbToHex(results.average.r, results.average.g, results.average.b);
-
-            // Update mixing visualizations
-            document.getElementById('additive-visualization').innerHTML = 
-                createMixingVisualization(sourceColors, results.additive);
-            document.getElementById('subtractive-visualization').innerHTML = 
-                createMixingVisualization(sourceColors, results.subtractive);
-            document.getElementById('average-visualization').innerHTML = 
-                createMixingVisualization(sourceColors, results.average);
-
+            // Get the current mixing type result
+            const currentResult = results[currentMixingType];
+            
+            // Update result display
+            document.getElementById('result-title').textContent = currentMixingType.charAt(0).toUpperCase() + currentMixingType.slice(1);
+            document.getElementById('result-color').style.backgroundColor = 
+                rgbToHex(currentResult.r, currentResult.g, currentResult.b);
+            document.getElementById('result-visualization').innerHTML = 
+                createMixingVisualization(sourceColors, currentResult);
+            
             // Update color values
-            updateResultValues('additive', results.additive);
-            updateResultValues('subtractive', results.subtractive);
-            updateResultValues('average', results.average);
+            updateResultValues(currentResult);
         }
 
-        function updateResultValues(type, rgb) {
+        function updateResultValues(rgb) {
             const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
             const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
             
-            document.getElementById(`${type}-values`).innerHTML = `
+            document.getElementById('result-values').innerHTML = `
                 <div class="color-value">R: ${rgb.r}</div>
                 <div class="color-value">G: ${rgb.g}</div>
                 <div class="color-value">B: ${rgb.b}</div>
@@ -798,6 +819,16 @@
                     document.querySelector('.third-color').classList.remove('active');
                 }
                 
+                updateResults();
+            });
+        });
+
+        // Mixing type switching
+        document.querySelectorAll('.mixing-type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mixing-type-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMixingType = btn.dataset.type;
                 updateResults();
             });
         });
